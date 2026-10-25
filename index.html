@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+  ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+  Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [{
+                "value": "hipotesis",
+                "label": "1) Contraste de hipótesis y errores"
+            },
+                {
+                    "value": "seleccion",
+                    "label": "2) Selección de pruebas y supuestos"
+                },
+                {
+                    "value": "media",
+                    "label": "3) Prueba de hipótesis para una media"
+                },
+                {
+                    "value": "varianza",
+                    "label": "4) Chi-cuadrado y comparación de varianzas"
+                },
+                {
+                    "value": "medias",
+                    "label": "5) Comparación de medias independientes"
+                },
+                {
+                    "value": "pareada",
+                    "label": "6) Prueba t pareada"
+                },
+                {
+                    "value": "anova",
+                    "label": "7) ANOVA y pruebas para varios grupos"
+                },
+                {
+                    "value": "correlacion",
+                    "label": "8) Correlación, regresión y gráficos"
+                },
+                {
+                    "value": "r",
+                    "label": "9) Preparación de datos y programación en R"
+                }],
+            "questions": [{
+                "id": "q1",
+                "topic": "hipotesis",
+                "text": "En un contraste se obtiene p = 0.032 y se estableció α = 0.05. ¿Cuál es la decisión estadística?",
+                "options": [
+                    "No rechazar H₀ porque p es menor que α",
+                    "Rechazar H₀ porque p < α",
+                    "Aceptar definitivamente Hₐ",
+                    "Aumentar α hasta que coincida con p"
+                ],
+                "answer": 1,
+                "explain": "Como 0.032 < 0.05, se rechaza H₀. El resultado proporciona evidencia estadística contra la hipótesis nula al nivel de significancia establecido, pero no demuestra automáticamente la hipótesis alternativa ni establece causalidad."
+            },
+                {
+                    "id": "q2",
+                    "topic": "hipotesis",
+                    "text": "¿Qué representa el error de tipo I?",
+                    "options": [
+                        "No rechazar una H₀ falsa",
+                        "Calcular incorrectamente la media muestral",
+                        "Rechazar una H₀ verdadera",
+                        "Rechazar una H₀ falsa"
+                    ],
+                    "answer": 2,
+                    "explain": "El error de tipo I consiste en rechazar H₀ cuando es verdadera. Su probabilidad se controla mediante el nivel de significancia α. El error de tipo II consiste en no rechazar H₀ cuando es falsa."
+                },
+                {
+                    "id": "q3",
+                    "topic": "hipotesis",
+                    "text": "Un investigador desea comprobar si la media poblacional es diferente de 20, sin especificar previamente una dirección. ¿Cuál es la hipótesis alternativa adecuada?",
+                    "options": [
+                        "Hₐ: μ > 20",
+                        "Hₐ: μ < 20",
+                        "Hₐ: μ = 20",
+                        "Hₐ: μ ≠ 20"
+                    ],
+                    "answer": 3,
+                    "explain": "La expresión μ ≠ 20 representa un contraste bilateral porque contempla diferencias tanto por encima como por debajo de 20. La dirección de la hipótesis alternativa debe definirse según la pregunta de investigación."
+                },
+                {
+                    "id": "q4",
+                    "topic": "seleccion",
+                    "text": "Se desea comparar la media de una muestra con un valor de referencia y la desviación estándar poblacional σ es desconocida. ¿Qué prueba corresponde al esquema estudiado?",
+                    "options": [
+                        "Prueba t de Student para una muestra",
+                        "Prueba F de Fisher",
+                        "Prueba chi-cuadrado para una varianza",
+                        "ANOVA de una vía"
+                    ],
+                    "answer": 0,
+                    "explain": "La prueba t de una muestra utiliza la desviación estándar muestral s cuando σ es desconocida. Su estadístico es t = (x̄ − μ₀)/(s/√n), con n − 1 grados de libertad."
+                },
+                {
+                    "id": "q5",
+                    "topic": "seleccion",
+                    "text": "Se miden las concentraciones de una sustancia en los mismos organismos antes y después de un tratamiento. ¿Qué característica del diseño determina la elección de la prueba?",
+                    "options": [
+                        "Las variables son necesariamente independientes",
+                        "Las mediciones están emparejadas por organismo",
+                        "Existen obligatoriamente tres grupos",
+                        "La desviación estándar poblacional es conocida"
+                    ],
+                    "answer": 1,
+                    "explain": "Las observaciones antes y después pertenecen al mismo organismo y, por tanto, son dependientes. La prueba t pareada analiza las diferencias individuales entre ambas mediciones."
+                },
+                {
+                    "id": "q6",
+                    "topic": "seleccion",
+                    "text": "¿Qué prueba se utiliza habitualmente para evaluar la normalidad de una muestra en R?",
+                    "options": [
+                        "var.test(datos)",
+                        "kruskal.test(datos)",
+                        "shapiro.test(datos)",
+                        "TukeyHSD(datos)"
+                    ],
+                    "answer": 2,
+                    "explain": "shapiro.test(datos) implementa la prueba de Shapiro-Wilk. Un resultado no significativo indica que no se detecta evidencia suficiente contra la normalidad, pero no demuestra que la distribución sea perfectamente normal."
+                },
+                {
+                    "id": "q7",
+                    "topic": "media",
+                    "text": "Una muestra tiene n = 16 y desviación estándar s = 8. ¿Cuál es el error estándar de la media?",
+                    "options": [
+                        "2",
+                        "0.5",
+                        "8",
+                        "4"
+                    ],
+                    "answer": 0,
+                    "explain": "EE = s/√n = 8/√16 = 8/4 = 2. El error estándar cuantifica la variabilidad estimada de la media muestral, no la dispersión individual de las observaciones."
+                },
+                {
+                    "id": "q8",
+                    "topic": "media",
+                    "text": "Una muestra presenta x̄ = 12, μ₀ = 10, s = 4 y n = 16. ¿Cuál es el estadístico t observado?",
+                    "options": [
+                        "0.5",
+                        "4",
+                        "2",
+                        "2.5"
+                    ],
+                    "answer": 2,
+                    "explain": "Primero se calcula EE = 4/√16 = 1. Después, t = (12 − 10)/1 = 2. Los grados de libertad son gl = n − 1 = 15."
+                },
+                {
+                    "id": "q9",
+                    "topic": "media",
+                    "text": "En una prueba t bilateral para una media, ¿qué cuantiles delimitan la región central de confianza de nivel 1 − α?",
+                    "options": [
+                        "qt(α, df) y qt(1 − α, df)",
+                        "qt(α/2, df) y qt(1 − α/2, df)",
+                        "qchisq(α, df) y qchisq(1 − α, df)",
+                        "qf(α, df1, df2) y qf(1 − α, df1, df2)"
+                    ],
+                    "answer": 1,
+                    "explain": "En un contraste bilateral se distribuye α entre las dos colas. Los cuantiles críticos son qt(α/2, df) y qt(1 − α/2, df). Para una prueba t de una muestra, df = n − 1."
+                },
+                {
+                    "id": "q10",
+                    "topic": "varianza",
+                    "text": "¿Cuál es el estadístico de la prueba chi-cuadrado para contrastar una varianza poblacional frente a σ₀²?",
+                    "options": [
+                        "χ² = (x̄ − μ₀)/(s/√n)",
+                        "χ² = s₁²/s₂²",
+                        "χ² = (n − 1)s²/σ₀²",
+                        "χ² = (s² − σ₀²)/n"
+                    ],
+                    "answer": 2,
+                    "explain": "El estadístico es χ² = (n − 1)s²/σ₀² y tiene n − 1 grados de libertad bajo la hipótesis nula y el supuesto de normalidad poblacional."
+                },
+                {
+                    "id": "q11",
+                    "topic": "varianza",
+                    "text": "¿Qué prueba de R contrasta la igualdad de varianzas de dos muestras independientes bajo el modelo F de Fisher?",
+                    "options": [
+                        "t.test(x, y, paired = TRUE)",
+                        "shapiro.test(x)",
+                        "aov(y ~ grupo)",
+                        "var.test(x, y)"
+                    ],
+                    "answer": 3,
+                    "explain": "var.test(x, y) implementa la prueba F para comparar dos varianzas poblacionales. Es sensible a las desviaciones de normalidad, por lo que el supuesto distributivo debe considerarse."
+                },
+                {
+                    "id": "q12",
+                    "topic": "medias",
+                    "text": "Dos grupos independientes presentan varianzas poblacionales que no pueden suponerse iguales. ¿Qué versión de la prueba t resulta apropiada?",
+                    "options": [
+                        "t de Welch",
+                        "t pareada",
+                        "Prueba chi-cuadrado para una varianza",
+                        "Prueba t de una muestra"
+                    ],
+                    "answer": 0,
+                    "explain": "La prueba t de Welch compara dos medias independientes sin exigir igualdad de varianzas. En R se utiliza t.test(x, y, var.equal = FALSE), que es el comportamiento predeterminado de t.test para dos muestras."
+                },
+                {
+                    "id": "q13",
+                    "topic": "medias",
+                    "text": "¿Qué expresión corresponde a la varianza combinada utilizada en la prueba t de Student para dos muestras independientes con varianzas iguales?",
+                    "options": [
+                        "Sp² = (s₁² + s₂²)/(n₁ + n₂)",
+                        "Sp² = [(n₁ − 1)s₁² + (n₂ − 1)s₂²]/(n₁ + n₂ − 2)",
+                        "Sp² = s₁²/s₂²",
+                        "Sp² = (s₁ + s₂)/2"
+                    ],
+                    "answer": 1,
+                    "explain": "La varianza combinada pondera cada varianza muestral por sus grados de libertad: Sp² = [(n₁ − 1)s₁² + (n₂ − 1)s₂²]/(n₁ + n₂ − 2). Se emplea en la prueba t de Student bajo igualdad de varianzas poblacionales."
+                },
+                {
+                    "id": "q14",
+                    "topic": "pareada",
+                    "text": "Para comparar mediciones antes y después, se define Dᵢ = despuésᵢ − antesᵢ. ¿Qué significa obtener una media de diferencias positiva?",
+                    "options": [
+                        "Todos los individuos necesariamente aumentaron",
+                        "Las dos mediciones son independientes",
+                        "El promedio de las mediciones posteriores supera al de las anteriores",
+                        "La hipótesis nula debe rechazarse automáticamente"
+                    ],
+                    "answer": 2,
+                    "explain": "Una media de diferencias positiva indica que el promedio de después menos antes es mayor que cero. No implica que todos los individuos hayan aumentado ni que el cambio sea estadísticamente significativo; la decisión requiere el contraste inferencial."
+                },
+                {
+                    "id": "q15",
+                    "topic": "pareada",
+                    "text": "¿Sobre qué datos debe evaluarse la normalidad al aplicar una prueba t pareada?",
+                    "options": [
+                        "Sobre las diferencias individuales",
+                        "Solo sobre las mediciones posteriores",
+                        "Sobre las dos muestras como si fueran independientes",
+                        "Únicamente sobre las medias de los grupos"
+                    ],
+                    "answer": 0,
+                    "explain": "La prueba t pareada transforma cada pareja en una diferencia Dᵢ y contrasta la media de esas diferencias. Por ello, el diagnóstico de normalidad se realiza sobre D, por ejemplo con shapiro.test(diferencias)."
+                },
+                {
+                    "id": "q16",
+                    "topic": "anova",
+                    "text": "Se comparan las medias de cuatro tratamientos independientes. ¿Cuál es la hipótesis nula del ANOVA de una vía?",
+                    "options": [
+                        "Todas las varianzas son diferentes",
+                        "Al menos una media es diferente",
+                        "Todas las observaciones son iguales",
+                        "μ₁ = μ₂ = μ₃ = μ₄"
+                    ],
+                    "answer": 3,
+                    "explain": "H₀ establece la igualdad de las medias poblacionales de todos los grupos: μ₁ = μ₂ = μ₃ = μ₄. La alternativa indica que al menos una media difiere, sin identificar necesariamente cuál."
+                },
+                {
+                    "id": "q17",
+                    "topic": "anova",
+                    "text": "¿Qué método permite comparar tres o más medias de grupos independientes cuando no se supone igualdad de varianzas?",
+                    "options": [
+                        "Prueba F para dos varianzas",
+                        "ANOVA de Welch",
+                        "Prueba t pareada",
+                        "Prueba chi-cuadrado para una varianza"
+                    ],
+                    "answer": 1,
+                    "explain": "El ANOVA de Welch permite comparar varios grupos independientes sin exigir homogeneidad de varianzas. En R se utiliza oneway.test(respuesta ~ grupo, var.equal = FALSE)."
+                },
+                {
+                    "id": "q18",
+                    "topic": "anova",
+                    "text": "Un ANOVA resulta significativo. ¿Cuál es la interpretación correcta?",
+                    "options": [
+                        "Todos los pares de medias son significativamente diferentes",
+                        "Todas las medias son iguales",
+                        "Existe evidencia de que al menos una media difiere; se necesitan comparaciones posteriores apropiadas para localizar las diferencias",
+                        "Se demuestra que el tratamiento causa el resultado"
+                    ],
+                    "answer": 2,
+                    "explain": "Un ANOVA significativo indica evidencia contra la igualdad simultánea de todas las medias, pero no identifica qué pares difieren. Se requieren comparaciones posteriores apropiadas, como TukeyHSD para un ANOVA clásico compatible con sus supuestos."
+                },
+                {
+                    "id": "q19",
+                    "topic": "correlacion",
+                    "text": "Se obtiene r = −0.82 entre dos variables cuantitativas. ¿Cuál es la interpretación más adecuada?",
+                    "options": [
+                        "Asociación lineal fuerte e inversa",
+                        "Asociación lineal débil y directa",
+                        "Ausencia total de asociación",
+                        "Prueba de causalidad directa"
+                    ],
+                    "answer": 0,
+                    "explain": "El signo negativo indica una asociación lineal inversa y |r| = 0.82 corresponde a una asociación fuerte según los criterios de estudio. La correlación por sí sola no demuestra causalidad."
+                },
+                {
+                    "id": "q20",
+                    "topic": "correlacion",
+                    "text": "¿Qué código de ggplot2 permite representar dos variables cuantitativas con puntos y añadir una recta de regresión lineal?",
+                    "options": [
+                        "ggplot(datos, aes(x, y)) + geom_boxplot()",
+                        "ggplot(datos, aes(x, y)) + geom_histogram()",
+                        "ggplot(datos, aes(x = x, y = y)) + geom_point() + geom_smooth(method = 'lm')",
+                        "ggplot(datos, aes(x = x)) + geom_bar()"
+                    ],
+                    "answer": 2,
+                    "explain": "geom_point() representa las observaciones en un diagrama de dispersión y geom_smooth(method = 'lm') añade un ajuste lineal. El gráfico permite evaluar la dirección, la forma y la dispersión de la relación."
+                },
+                {
+                    "id": "q21",
+                    "topic": "r",
+                    "text": "¿Qué función de R devuelve el número de observaciones de un vector x?",
+                    "options": [
+                        "sd(x)",
+                        "length(x)",
+                        "mean(x)",
+                        "IQR(x)"
+                    ],
+                    "answer": 1,
+                    "explain": "length(x) devuelve el número de elementos del vector. mean(x) calcula la media, sd(x) la desviación estándar muestral e IQR(x) el rango intercuartílico."
+                },
+                {
+                    "id": "q22",
+                    "topic": "r",
+                    "text": "¿Qué función permite fijar una semilla para reproducir una simulación aleatoria en R?",
+                    "options": [
+                        "runif(n, min, max)",
+                        "rbind(datos1, datos2)",
+                        "read.csv('archivo.csv')",
+                        "set.seed(1010)"
+                    ],
+                    "answer": 3,
+                    "explain": "set.seed(1010) fija el estado inicial del generador de números aleatorios para que una simulación pueda reproducirse bajo las mismas condiciones y configuración de R."
+                },
+                {
+                    "id": "q23",
+                    "topic": "r",
+                    "text": "¿Cuál es la secuencia de trabajo más apropiada para resolver un contraste de hipótesis?",
+                    "options": [
+                        "Elegir una prueba al azar, calcular p y después formular H₀",
+                        "Interpretar el gráfico como prueba definitiva y omitir los supuestos",
+                        "Identificar pregunta y diseño, formular hipótesis, revisar supuestos, elegir la prueba, calcular y decidir, e interpretar en contexto",
+                        "Rechazar H₀ siempre que la media muestral sea distinta del valor de referencia"
+                    ],
+                    "answer": 2,
+                    "explain": "La elección debe partir de la pregunta, el parámetro y el diseño. Después se formulan H₀ y Hₐ, se evalúan los supuestos pertinentes, se aplica la prueba, se obtiene el valor p o el valor crítico y se interpreta el resultado en el contexto biológico."
+                },
+                {
+                    "id": "q24",
+                    "topic": "media",
+                    "text": "En una prueba t de una muestra con n = 10, x̄ = 9.1, s = 1.91 y μ₀ = 8, se obtiene t ≈ 1.82 y p bilateral ≈ 0.1018. Con α = 0.05, ¿qué conclusión corresponde?",
+                    "options": [
+                        "Rechazar H₀ porque t es positivo",
+                        "No rechazar H₀ porque p ≥ α",
+                        "Aceptar que μ = 8 con certeza absoluta",
+                        "Rechazar H₀ porque p es mayor que α"
+                    ],
+                    "answer": 1,
+                    "explain": "Como 0.1018 ≥ 0.05, no se rechaza H₀. No existe evidencia estadística suficiente al nivel del 5 % para afirmar que la media poblacional difiere de 8. La conclusión no demuestra que la media sea exactamente 8."
+                },
+                {
+                    "id": "q25",
+                    "topic": "varianza",
+                    "text": "En una prueba chi-cuadrado para una varianza, la hipótesis alternativa es Hₐ: σ² > σ₀². ¿En qué región se encuentra la región crítica?",
+                    "options": [
+                        "En la cola derecha de la distribución chi-cuadrado",
+                        "En la cola izquierda exclusivamente",
+                        "En las dos colas por igual",
+                        "No existe región crítica"
+                    ],
+                    "answer": 0,
+                    "explain": "La alternativa σ² > σ₀² corresponde a un contraste de cola derecha. Para un contraste de cola izquierda se utiliza σ² < σ₀² y para uno bilateral, σ² ≠ σ₀²."
+                },
+                {
+                    "id": "q26",
+                    "topic": "correlacion",
+                    "text": "En los datos estudiados, la correlación entre IMC y porcentaje de grasa corporal fue r = 0.7157041. Según los criterios del material, ¿cómo se clasifica?",
+                    "options": [
+                        "Débil e inversa",
+                        "Moderada e inversa",
+                        "Nula",
+                        "Fuerte y directa"
+                    ],
+                    "answer": 3,
+                    "explain": "El coeficiente es positivo, por lo que la asociación lineal es directa; su magnitud supera 0.7, de modo que se clasifica como fuerte según el criterio del material. Esta asociación no demuestra causalidad."
+                }],
+            "glossary": [{
+                "term": "Hipótesis nula (H₀)",
+                "def": "Hipótesis de referencia que especifica el valor o la condición contrastada, por ejemplo μ = μ₀ o la igualdad de varias medias."
+            },
+                {
+                    "term": "Hipótesis alternativa (Hₐ)",
+                    "def": "Hipótesis que expresa la diferencia o dirección de interés: bilateral (≠), cola derecha (>) o cola izquierda (<)."
+                },
+                {
+                    "term": "Nivel de significancia (α)",
+                    "def": "Umbral establecido para controlar el riesgo de error de tipo I. La decisión habitual es rechazar H₀ cuando p < α."
+                },
+                {
+                    "term": "Valor p",
+                    "def": "Probabilidad, suponiendo H₀ y el modelo de la prueba, de obtener un resultado al menos tan extremo como el observado en la dirección definida por el contraste. No es la probabilidad de que H₀ sea verdadera."
+                },
+                {
+                    "term": "Error de tipo I",
+                    "def": "Rechazar H₀ cuando es verdadera. Su probabilidad se controla mediante α."
+                },
+                {
+                    "term": "Error de tipo II",
+                    "def": "No rechazar H₀ cuando es falsa. Su probabilidad se representa mediante β."
+                },
+                {
+                    "term": "Potencia estadística",
+                    "def": "Probabilidad de rechazar H₀ cuando es falsa; se expresa como 1 − β."
+                },
+                {
+                    "term": "Error estándar (EE)",
+                    "def": "Estimación de la desviación estándar de la distribución muestral de la media. Cuando σ es desconocida, EE = s/√n."
+                },
+                {
+                    "term": "Grados de libertad (gl)",
+                    "def": "Cantidad de información independiente utilizada para estimar la distribución de referencia de un estadístico. En las pruebas t de una muestra y t pareada, gl = n − 1."
+                },
+                {
+                    "term": "Prueba t de Student",
+                    "def": "Prueba paramétrica para contrastar medias cuando se utiliza la desviación estándar muestral; en una muestra, t = (x̄ − μ₀)/(s/√n)."
+                },
+                {
+                    "term": "Prueba t de Welch",
+                    "def": "Prueba para comparar medias de dos muestras independientes sin asumir igualdad de varianzas poblacionales; utiliza grados de libertad aproximados."
+                },
+                {
+                    "term": "Prueba t pareada",
+                    "def": "Contrasta la media de las diferencias individuales entre mediciones dependientes. El estadístico utiliza D̄, sD y √n."
+                },
+                {
+                    "term": "Prueba chi-cuadrado para una varianza",
+                    "def": "Contrasta una varianza poblacional bajo el supuesto de normalidad. El estadístico es χ² = (n − 1)s²/σ₀² y gl = n − 1."
+                },
+                {
+                    "term": "Prueba F de Fisher",
+                    "def": "Compara dos varianzas poblacionales independientes mediante F = s₁²/s₂², con gl₁ = n₁ − 1 y gl₂ = n₂ − 1."
+                },
+                {
+                    "term": "ANOVA de una vía",
+                    "def": "Compara las medias de tres o más grupos independientes. Su hipótesis nula establece que todas las medias poblacionales son iguales."
+                },
+                {
+                    "term": "ANOVA de Welch",
+                    "def": "Método para comparar las medias de varios grupos independientes cuando no se supone igualdad de varianzas."
+                },
+                {
+                    "term": "Kruskal-Wallis",
+                    "def": "Prueba no paramétrica basada en rangos para comparar varios grupos independientes cuando el enfoque paramétrico no resulta apropiado."
+                },
+                {
+                    "term": "Prueba de Shapiro-Wilk",
+                    "def": "Procedimiento de diagnóstico de normalidad disponible en R mediante shapiro.test(). Un resultado no significativo no demuestra normalidad."
+                },
+                {
+                    "term": "Homogeneidad de varianzas",
+                    "def": "Supuesto de igualdad de varianzas poblacionales entre grupos. Puede evaluarse mediante Levene o, bajo condiciones apropiadas, Bartlett o la prueba F para dos muestras."
+                },
+                {
+                    "term": "Correlación de Pearson",
+                    "def": "Coeficiente r que describe la dirección y magnitud de una asociación lineal entre variables cuantitativas. Toma valores entre −1 y +1."
+                },
+                {
+                    "term": "Regresión lineal",
+                    "def": "Modelo que resume una tendencia lineal entre una variable respuesta y una variable explicativa; en ggplot2 puede visualizarse con geom_smooth(method = 'lm')."
+                },
+                {
+                    "term": "Varianza combinada",
+                    "def": "Estimación ponderada de la varianza común usada en la prueba t de Student para dos muestras independientes cuando se asume igualdad de varianzas."
+                },
+                {
+                    "term": "Rango intercuartílico (RIC)",
+                    "def": "Medida de dispersión igual a Q3 − Q1. Resume la amplitud del 50 % central de los datos."
+                },
+                {
+                    "term": "Independencia",
+                    "def": "Condición del diseño según la cual las observaciones relevantes no están emparejadas o vinculadas de forma que deban analizarse como dependientes. Las mediciones repetidas del mismo individuo requieren considerar su dependencia."
+                },
+                {
+                    "term": "Comparaciones posteriores (post-hoc)",
+                    "def": "Procedimientos que permiten identificar qué grupos difieren después de un contraste global significativo, aplicando el método adecuado y controlando el problema de comparaciones múltiples."
+                }],
+            "flashcards": [{
+                "id": "f1",
+                "front": "Regla de decisión con valor p",
+                "back": "p < α: rechazar H₀. p ≥ α: no rechazar H₀. No rechazar H₀ no demuestra igualdad."
+            },
+                {
+                    "id": "f2",
+                    "front": "Error tipo I, tipo II y potencia",
+                    "back": "Tipo I: rechazar H₀ verdadera. Tipo II: no rechazar H₀ falsa. Potencia: 1 − β."
+                },
+                {
+                    "id": "f3",
+                    "front": "Contraste bilateral y unilateral",
+                    "back": "Bilateral: Hₐ: parámetro ≠ referencia. Derecha: >. Izquierda: <. La dirección debe responder a la pregunta."
+                },
+                {
+                    "id": "f4",
+                    "front": "Error estándar de la media",
+                    "back": "EE = s/√n cuando σ es desconocida. Ejemplo: s = 8 y n = 16 → EE = 2."
+                },
+                {
+                    "id": "f5",
+                    "front": "Estadístico t para una media",
+                    "back": "t = (x̄ − μ₀)/(s/√n). Grados de libertad: gl = n − 1."
+                },
+                {
+                    "id": "f6",
+                    "front": "Código R para una prueba t",
+                    "back": "t.test(datos, mu = mu0, alternative = 'two.sided'). Usa 'greater' para > y 'less' para <."
+                },
+                {
+                    "id": "f7",
+                    "front": "Prueba chi-cuadrado para una varianza",
+                    "back": "χ² = (n − 1)s²/σ₀²; gl = n − 1. Requiere normalidad poblacional."
+                },
+                {
+                    "id": "f8",
+                    "front": "Prueba F de Fisher",
+                    "back": "F = s₁²/s₂². gl₁ = n₁ − 1; gl₂ = n₂ − 1. En R: var.test(x, y)."
+                },
+                {
+                    "id": "f9",
+                    "front": "Student independiente frente a Welch",
+                    "back": "Student: varianzas iguales; var.equal = TRUE. Welch: no exige igualdad; var.equal = FALSE."
+                },
+                {
+                    "id": "f10",
+                    "front": "Prueba t pareada",
+                    "back": "Dᵢ = despuésᵢ − antesᵢ. t = (D̄ − μD,0)/(sD/√n). gl = n − 1."
+                },
+                {
+                    "id": "f11",
+                    "front": "Normalidad en una prueba pareada",
+                    "back": "Se evalúa sobre las diferencias: shapiro.test(diferencias). No se analizan las mediciones como muestras independientes."
+                },
+                {
+                    "id": "f12",
+                    "front": "Hipótesis del ANOVA",
+                    "back": "H₀: μ₁ = μ₂ = … = μk. Hₐ: al menos una media difiere. Un resultado significativo no identifica por sí solo los pares diferentes."
+                },
+                {
+                    "id": "f13",
+                    "front": "Welch y Kruskal-Wallis",
+                    "back": "Welch: varios grupos independientes con varianzas desiguales. Kruskal-Wallis: alternativa no paramétrica basada en rangos."
+                },
+                {
+                    "id": "f14",
+                    "front": "Normalidad en R",
+                    "back": "shapiro.test(datos). Complementa con histograma y Q-Q. Un p no significativo no demuestra normalidad."
+                },
+                {
+                    "id": "f15",
+                    "front": "Correlación de Pearson",
+                    "back": "cor(x, y) calcula r; cor.test(x, y) realiza el contraste. r > 0: directa; r < 0: inversa."
+                },
+                {
+                    "id": "f16",
+                    "front": "Interpretación de la magnitud de r",
+                    "back": "|r| < 0.3: débil. 0.3–0.7: moderada. |r| > 0.7: fuerte, según el criterio del material."
+                },
+                {
+                    "id": "f17",
+                    "front": "Código de dispersión y regresión",
+                    "back": "ggplot(datos, aes(x = x, y = y)) + geom_point() + geom_smooth(method = 'lm')."
+                },
+                {
+                    "id": "f18",
+                    "front": "Descriptivos en R",
+                    "back": "mean(x): media; median(x): mediana; sd(x): desviación estándar; IQR(x): rango intercuartílico; length(x): número de elementos."
+                },
+                {
+                    "id": "f19",
+                    "front": "Preparación reproducible de datos",
+                    "back": "set.seed(1010) fija la semilla; runif(n, min, max) genera valores uniformes; rbind(a, b) une tablas por filas."
+                },
+                {
+                    "id": "f20",
+                    "front": "Flujo para resolver un contraste",
+                    "back": "Identificar diseño y parámetro → formular H₀/Hₐ y α → revisar supuestos → elegir prueba → calcular estadístico y p → decidir e interpretar."
+                }],
+            "structures": [],
+            "cases": [{
+                "id": "c1",
+                "text": "En un estudio se compara la media de una variable biológica con μ₀ = 8. Se obtienen n = 10, x̄ = 9.1 y s = 1.91. El contraste es bilateral con α = 0.05 y se informa t ≈ 1.82, p ≈ 0.1018. ¿Cuál es la conclusión adecuada?",
+                "options": [
+                    "Rechazar H₀ porque x̄ > μ₀",
+                    "No rechazar H₀ porque p ≥ α",
+                    "Aceptar H₀ como verdadera con certeza",
+                    "Rechazar H₀ porque el estadístico es positivo"
+                ],
+                "answer": 1,
+                "feedback": "Cálculo: EE = 1.91/√10 ≈ 0.604; t = (9.1 − 8)/0.604 ≈ 1.82; gl = 9. Decisión: p ≈ 0.1018 ≥ 0.05, por lo que no se rechaza H₀. Interpretación: no hay evidencia suficiente para afirmar que la media poblacional difiera de 8 al nivel de significancia del 5 %."
+            },
+                {
+                    "id": "c2",
+                    "text": "Se comparan dos grupos independientes de organismos. El objetivo es determinar si sus medias difieren y no se puede suponer igualdad de varianzas. ¿Qué análisis y código corresponden?",
+                    "options": [
+                        "Prueba t pareada: t.test(grupo1, grupo2, paired = TRUE)",
+                        "Prueba F: var.test(grupo1, grupo2)",
+                        "Prueba t de Welch: t.test(grupo1, grupo2, var.equal = FALSE)",
+                        "Prueba chi-cuadrado: chisq.test(grupo1, grupo2)"
+                    ],
+                    "answer": 2,
+                    "feedback": "El diseño contiene dos grupos independientes y el objetivo es comparar medias. Como no se supone igualdad de varianzas, corresponde la prueba t de Welch. La prueba pareada se reserva para observaciones vinculadas; la prueba F contrasta varianzas y no medias."
+                },
+                {
+                    "id": "c3",
+                    "text": "En un experimento se mide la respuesta de los mismos organismos antes y después de una intervención. Se define diferencias = después − antes. ¿Qué procedimiento permite evaluar si el cambio medio es positivo?",
+                    "options": [
+                        "t.test(despues, antes, paired = TRUE, alternative = 'greater')",
+                        "var.test(despues, antes)",
+                        "t.test(despues, antes, var.equal = TRUE)",
+                        "kruskal.test(despues ~ antes)"
+                    ],
+                    "answer": 0,
+                    "feedback": "El contraste debe analizar la dependencia entre las dos mediciones. El código indicado prueba si la media de después − antes es positiva. La hipótesis alternativa corresponde a μD > 0. También puede calcularse diferencias <- despues - antes y utilizar t.test(diferencias, mu = 0, alternative = 'greater')."
+                },
+                {
+                    "id": "c4",
+                    "text": "Se estudian cuatro tratamientos independientes. El ANOVA de una vía produce p = 0.008 con α = 0.05. ¿Cuál es la interpretación correcta?",
+                    "options": [
+                        "Los cuatro tratamientos tienen medias distintas entre sí",
+                        "Las varianzas de todos los tratamientos son iguales",
+                        "No existe evidencia de diferencias entre las medias",
+                        "Se rechaza la igualdad global de medias y deben evaluarse comparaciones posteriores apropiadas"
+                    ],
+                    "answer": 3,
+                    "feedback": "Como 0.008 < 0.05, se rechaza H₀ de igualdad de todas las medias. El resultado indica que al menos una media difiere, pero no identifica qué grupos presentan diferencias. Pueden utilizarse comparaciones posteriores apropiadas, por ejemplo TukeyHSD para un ANOVA clásico que cumpla los supuestos."
+                },
+                {
+                    "id": "c5",
+                    "text": "Un análisis de dos variables biológicas produce r = 0.4476808. Según los criterios de magnitud establecidos en el material, ¿cómo se interpreta?",
+                    "options": [
+                        "Asociación fuerte e inversa",
+                        "Asociación moderada y directa",
+                        "Ausencia completa de relación",
+                        "Causalidad demostrada"
+                    ],
+                    "answer": 1,
+                    "feedback": "El signo positivo indica una asociación lineal directa y la magnitud absoluta, aproximadamente 0.448, corresponde a una asociación moderada según el criterio del material. La correlación no demuestra causalidad."
+                },
+                {
+                    "id": "c6",
+                    "text": "Se dispone de un vector de mediciones llamado datos. Se desea calcular el tamaño muestral, la media, la desviación estándar y evaluar normalidad. ¿Qué conjunto de instrucciones es correcto?",
+                    "options": [
+                        "length(datos); mean(datos); sd(datos); shapiro.test(datos)",
+                        "var.test(datos); aov(datos); qf(datos)",
+                        "cor(datos); rbind(datos); geom_boxplot(datos)",
+                        "set.seed(datos); IQR(datos); kruskal.test(datos)"
+                    ],
+                    "answer": 0,
+                    "feedback": "length(datos) devuelve el número de elementos; mean(datos) calcula la media; sd(datos) calcula la desviación estándar muestral y shapiro.test(datos) realiza la prueba de Shapiro-Wilk para evaluar normalidad."
+                },
+                {
+                    "id": "c7",
+                    "text": "Se desea contrastar una varianza poblacional frente a σ₀² = 9. La muestra tiene n = 12 y varianza muestral s² = 16. ¿Cuál es el estadístico chi-cuadrado observado?",
+                    "options": [
+                        "χ² = 12 × 16/9 ≈ 21.33",
+                        "χ² = 16/9 ≈ 1.78",
+                        "χ² = (12 − 1) × 16/9 ≈ 19.56",
+                        "χ² = (12 − 1) × 9/16 ≈ 6.19"
+                    ],
+                    "answer": 2,
+                    "feedback": "Se aplica χ² = (n − 1)s²/σ₀². Sustituyendo: χ² = (12 − 1) × 16/9 = 176/9 ≈ 19.56. Los grados de libertad son gl = n − 1 = 11. La decisión final requiere especificar la hipótesis alternativa y obtener el valor crítico o el valor p."
+                },
+                {
+                    "id": "c8",
+                    "text": "En un análisis de cambios antes y después, el investigador aplica Shapiro-Wilk a las mediciones posteriores, pero no a las diferencias. ¿Cuál es el ajuste metodológico más pertinente para la prueba t pareada?",
+                    "options": [
+                        "Aplicar una prueba F a las dos mediciones",
+                        "Tratar las mediciones como independientes",
+                        "Omitir cualquier diagnóstico porque el tamaño muestral es pareado",
+                        "Calcular después − antes y evaluar la normalidad de esas diferencias"
+                    ],
+                    "answer": 3,
+                    "feedback": "La prueba t pareada se formula sobre las diferencias individuales Dᵢ = despuésᵢ − antesᵢ. Por ello, el diagnóstico de normalidad debe centrarse en la variable diferencias mediante shapiro.test(diferencias), complementado con histograma y gráfico Q-Q."
+                },
+                {
+                    "id": "c9",
+                    "text": "Un investigador necesita generar 30 valores aleatorios uniformes entre 2 y 10 y asegurar la reproducibilidad de la simulación. ¿Qué código es adecuado?",
+                    "options": [
+                        "runif(2, 10, 30)",
+                        "set.seed(1010); runif(30, min = 2, max = 10)",
+                        "length(30); mean(2, 10)",
+                        "rbind(2, 10, 30)"
+                    ],
+                    "answer": 1,
+                    "feedback": "set.seed(1010) fija la semilla del generador aleatorio. runif(30, min = 2, max = 10) genera 30 valores de una distribución uniforme en el intervalo indicado. La semilla facilita reproducir la simulación bajo la misma configuración."
+                }],
+            "interactives": [{
+                "id": "i1",
+                "type": "dragdrop",
+                "title": "Relaciona el diseño con la prueba estadística",
+                "terms": [
+                    "Una media frente a μ₀, σ desconocida",
+                    "Una varianza frente a σ₀²",
+                    "Dos varianzas independientes",
+                    "Dos medias independientes con varianzas iguales",
+                    "Dos medias independientes sin igualdad de varianzas",
+                    "Mediciones antes y después en los mismos individuos",
+                    "Tres o más medias independientes con varianzas iguales",
+                    "Tres o más medias independientes con varianzas desiguales",
+                    "Varios grupos independientes con enfoque no paramétrico"
+                ],
+                "targets": [
+                    "Prueba t de una muestra",
+                    "Chi-cuadrado para una varianza",
+                    "Prueba F de Fisher",
+                    "t de Student independiente con varianza combinada",
+                    "t de Welch para dos muestras",
+                    "t pareada sobre diferencias",
+                    "ANOVA clásico de una vía",
+                    "ANOVA de Welch",
+                    "Kruskal-Wallis"
+                ],
+                "answerMap": {
+                    "Una media frente a μ₀, σ desconocida": "Prueba t de una muestra",
+                    "Una varianza frente a σ₀²": "Chi-cuadrado para una varianza",
+                    "Dos varianzas independientes": "Prueba F de Fisher",
+                    "Dos medias independientes con varianzas iguales": "t de Student independiente con varianza combinada",
+                    "Dos medias independientes sin igualdad de varianzas": "t de Welch para dos muestras",
+                    "Mediciones antes y después en los mismos individuos": "t pareada sobre diferencias",
+                    "Tres o más medias independientes con varianzas iguales": "ANOVA clásico de una vía",
+                    "Tres o más medias independientes con varianzas desiguales": "ANOVA de Welch",
+                    "Varios grupos independientes con enfoque no paramétrico": "Kruskal-Wallis"
+                }
+            },
+                {
+                    "id": "i2",
+                    "type": "complete",
+                    "title": "Completa la regla de decisión",
+                    "prompt": "Si p es menor que α, se ______ H₀. Si p es mayor o igual que α, no se ______ H₀.",
+                    "answer": "rechaza; rechaza"
+                },
+                {
+                    "id": "i3",
+                    "type": "complete",
+                    "title": "Completa el error estándar y el estadístico t",
+                    "prompt": "Cuando σ es desconocida, el error estándar de la media es EE = ______/√n y el estadístico de una muestra es t = (x̄ − μ₀)/______.",
+                    "answer": "s; EE"
+                },
+                {
+                    "id": "i4",
+                    "type": "complete",
+                    "title": "Completa el contraste chi-cuadrado",
+                    "prompt": "Para contrastar una varianza poblacional, χ² = (______ − 1)s²/σ₀² y los grados de libertad son gl = ______ − 1.",
+                    "answer": "n; n"
+                },
+                {
+                    "id": "i5",
+                    "type": "complete",
+                    "title": "Completa la prueba t pareada",
+                    "prompt": "La diferencia individual se define como Dᵢ = ______ᵢ − ______ᵢ. El estadístico es t = (D̄ − μD,0)/(sD/√n).",
+                    "answer": "después; antes"
+                },
+                {
+                    "id": "i6",
+                    "type": "complete",
+                    "title": "Completa el ANOVA de una vía",
+                    "prompt": "La hipótesis nula del ANOVA establece que μ₁ = μ₂ = … = μk. Si se rechaza H₀, se concluye que al menos ______ media difiere y pueden necesitarse comparaciones ______.",
+                    "answer": "una; posteriores"
+                },
+                {
+                    "id": "i7",
+                    "type": "complete",
+                    "title": "Completa el código de diagnóstico y descriptivos",
+                    "prompt": "Para evaluar normalidad se utiliza ______(datos); para calcular la media, ______(datos); para calcular la desviación estándar muestral, ______(datos).",
+                    "answer": "shapiro.test; mean; sd"
+                },
+                {
+                    "id": "i8",
+                    "type": "complete",
+                    "title": "Completa el código de correlación y regresión",
+                    "prompt": "El coeficiente de Pearson se calcula con ______(x, y). Para visualizar puntos y una recta de regresión lineal en ggplot2 se combinan geom_point() y geom_smooth(method = '______').",
+                    "answer": "cor; lm"
+                },
+                {
+                    "id": "i9",
+                    "type": "complete",
+                    "title": "Completa la preparación de una simulación reproducible",
+                    "prompt": "La función ______(1010) fija la semilla; la función runif(30, min = 2, max = 10) genera valores aleatorios uniformes.",
+                    "answer": "set.seed"
+                },
+                {
+                    "id": "i10",
+                    "type": "dragdrop",
+                    "title": "Relaciona la función de R con su utilidad",
+                    "terms": [
+                        "shapiro.test(datos)",
+                        "var.test(x, y)",
+                        "t.test(datos, mu = mu0)",
+                        "t.test(x, y, var.equal = FALSE)",
+                        "t.test(despues, antes, paired = TRUE)",
+                        "aov(respuesta ~ grupo, data = datos)",
+                        "oneway.test(respuesta ~ grupo, data = datos, var.equal = FALSE)",
+                        "kruskal.test(respuesta ~ grupo, data = datos)",
+                        "cor(x, y)",
+                        "length(x)",
+                        "IQR(x)",
+                        "rbind(datos1, datos2)"
+                    ],
+                    "targets": [
+                        "Evaluar normalidad mediante Shapiro-Wilk",
+                        "Comparar dos varianzas",
+                        "Contrastar una media frente a un valor",
+                        "Comparar dos medias independientes mediante Welch",
+                        "Comparar mediciones emparejadas",
+                        "Realizar ANOVA clásico de una vía",
+                        "Comparar varias medias con varianzas desiguales",
+                        "Comparar grupos mediante una prueba basada en rangos",
+                        "Calcular correlación de Pearson",
+                        "Contar elementos de un vector",
+                        "Calcular rango intercuartílico",
+                        "Unir tablas por filas"
+                    ],
+                    "answerMap": {
+                        "shapiro.test(datos)": "Evaluar normalidad mediante Shapiro-Wilk",
+                        "var.test(x, y)": "Comparar dos varianzas",
+                        "t.test(datos, mu = mu0)": "Contrastar una media frente a un valor",
+                        "t.test(x, y, var.equal = FALSE)": "Comparar dos medias independientes mediante Welch",
+                        "t.test(despues, antes, paired = TRUE)": "Comparar mediciones emparejadas",
+                        "aov(respuesta ~ grupo, data = datos)": "Realizar ANOVA clásico de una vía",
+                        "oneway.test(respuesta ~ grupo, data = datos, var.equal = FALSE)": "Comparar varias medias con varianzas desiguales",
+                        "kruskal.test(respuesta ~ grupo, data = datos)": "Comparar grupos mediante una prueba basada en rangos",
+                        "cor(x, y)": "Calcular correlación de Pearson",
+                        "length(x)": "Contar elementos de un vector",
+                        "IQR(x)": "Calcular rango intercuartílico",
+                        "rbind(datos1, datos2)": "Unir tablas por filas"
+                    }
+                }],
+            "maps": {
+                "hipotesis": "Contraste de hipótesis\n├─ Planteamiento\n│  ├─ H₀: condición de referencia\n│  ├─ Hₐ: diferencia o dirección de interés\n│  └─ α: nivel de significancia\n├─ Dirección\n│  ├─ Bilateral: ≠\n│  ├─ Cola derecha: >\n│  └─ Cola izquierda: <\n├─ Decisión\n│  ├─ p < α → rechazar H₀\n│  └─ p ≥ α → no rechazar H₀\n└─ Errores\n   ├─ Tipo I: rechazar H₀ verdadera\n   ├─ Tipo II: no rechazar H₀ falsa\n   └─ Potencia: 1 − β",
+                "seleccion": "Selección de pruebas estadísticas\n├─ Una muestra\n│  ├─ Media con σ conocida → Z\n│  ├─ Media con σ desconocida → t\n│  └─ Varianza → chi-cuadrado\n├─ Dos muestras\n│  ├─ Dos varianzas → F\n│  ├─ Medias independientes, varianzas iguales → Student\n│  ├─ Medias independientes, varianzas desiguales → Welch\n│  └─ Mediciones dependientes → t pareada\n├─ Tres o más grupos independientes\n│  ├─ Varianzas iguales y supuestos adecuados → ANOVA clásico\n│  ├─ Varianzas desiguales → Welch\n│  └─ Enfoque no paramétrico → Kruskal-Wallis\n└─ Diagnóstico\n   ├─ Normalidad → Shapiro-Wilk, histograma, Q-Q\n   ├─ Homogeneidad → Levene o prueba apropiada\n   └─ Independencia → revisar el diseño",
+                "media": "Prueba de hipótesis para una media\n├─ Datos\n│  ├─ x̄: media muestral\n│  ├─ s: desviación estándar muestral\n│  ├─ n: tamaño de muestra\n│  └─ μ₀: valor hipotético\n├─ Error estándar\n│  └─ EE = s/√n\n├─ Estadístico\n│  ├─ σ conocida: Z = (x̄ − μ₀)/(σ/√n)\n│  └─ σ desconocida: t = (x̄ − μ₀)/(s/√n)\n├─ Grados de libertad\n│  └─ gl = n − 1\n├─ R\n│  ├─ t.test(datos, mu = mu0)\n│  ├─ shapiro.test(datos)\n│  ├─ mean(datos); sd(datos); length(datos)\n│  └─ qt() y pt() para cuantiles y probabilidades\n└─ Interpretación\n   ├─ Comparar p con α\n   └─ Concluir en el contexto biológico",
+                "varianza": "Contraste de varianzas\n├─ Una varianza: chi-cuadrado\n│  ├─ χ² = (n − 1)s²/σ₀²\n│  ├─ gl = n − 1\n│  ├─ Requiere normalidad poblacional\n│  └─ R: qchisq(), pchisq()\n├─ Dos varianzas independientes: F\n│  ├─ F = s₁²/s₂²\n│  ├─ gl₁ = n₁ − 1\n│  ├─ gl₂ = n₂ − 1\n│  └─ R: var.test(x, y)\n└─ Dirección de la alternativa\n   ├─ σ² < σ₀² → cola izquierda\n   ├─ σ² > σ₀² → cola derecha\n   └─ σ² ≠ σ₀² → dos colas",
+                "medias": "Comparación de medias independientes\n├─ Student con varianzas iguales\n│  ├─ Usa varianza combinada\n│  ├─ Sp² = [(n₁ − 1)s₁² + (n₂ − 1)s₂²]/(n₁ + n₂ − 2)\n│  └─ R: t.test(x, y, var.equal = TRUE)\n├─ Welch con varianzas desiguales\n│  ├─ No exige igualdad de varianzas\n│  ├─ Grados de libertad aproximados\n│  └─ R: t.test(x, y, var.equal = FALSE)\n└─ Decisión\n   ├─ Formular H₀ y Hₐ\n   ├─ Considerar el orden de la comparación\n   └─ Interpretar el valor p y la dirección del efecto",
+                "pareada": "Prueba t pareada\n├─ Diseño\n│  ├─ Mismos individuos antes y después\n│  └─ Observaciones dependientes\n├─ Diferencias\n│  ├─ Dᵢ = despuésᵢ − antesᵢ\n│  ├─ D̄: media de las diferencias\n│  └─ sD: desviación estándar de las diferencias\n├─ Estadístico\n│  ├─ t = (D̄ − μD,0)/(sD/√n)\n│  └─ gl = n − 1\n├─ Supuestos\n│  ├─ Normalidad de las diferencias\n│  └─ Independencia entre las parejas\n└─ R\n   ├─ t.test(despues, antes, paired = TRUE)\n   └─ shapiro.test(diferencias)",
+                "anova": "Comparación de tres o más grupos\n├─ ANOVA clásico\n│  ├─ H₀: μ₁ = μ₂ = … = μk\n│  ├─ Hₐ: al menos una media difiere\n│  ├─ Requiere normalidad, homogeneidad e independencia\n│  └─ R: aov(respuesta ~ grupo, data = datos)\n├─ Alternativas\n│  ├─ Welch: varianzas desiguales\n│  └─ Kruskal-Wallis: prueba basada en rangos\n├─ Diagnóstico en R\n│  ├─ Normalidad por grupo: RVAideMemoire::byf.shapiro()\n│  ├─ Levene: car::leveneTest()\n│  └─ Bartlett: bartlett.test()\n└─ Después de un resultado global significativo\n   ├─ Identificar qué grupos difieren\n   ├─ TukeyHSD() para ANOVA clásico apropiado\n   └─ pairwise.t.test() con ajuste de p cuando corresponda",
+                "correlacion": "Correlación y regresión\n├─ Diagrama de dispersión\n│  ├─ Dirección de la relación\n│  ├─ Forma del patrón\n│  └─ Dispersión de las observaciones\n├─ Pearson\n│  ├─ R: cor(x, y)\n│  ├─ R: cor.test(x, y)\n│  ├─ r > 0: asociación directa\n│  └─ r < 0: asociación inversa\n├─ Magnitud según el material\n│  ├─ |r| < 0.3: débil\n│  ├─ 0.3 ≤ |r| ≤ 0.7: moderada\n│  └─ |r| > 0.7: fuerte\n├─ Visualización en R\n│  ├─ geom_point(): puntos\n│  ├─ geom_smooth(method = 'lm'): recta lineal\n│  ├─ geom_boxplot(): distribución por grupos\n│  └─ geom_jitter(): observaciones individuales\n└─ Precaución\n   └─ Correlación no demuestra causalidad",
+                "r": "Organización de datos y análisis en R\n├─ Crear y resumir vectores\n│  ├─ c(...): crear vector\n│  ├─ length(x): número de elementos\n│  ├─ mean(x): media\n│  ├─ median(x): mediana\n│  ├─ sd(x): desviación estándar\n│  └─ IQR(x): rango intercuartílico\n├─ Importar e inspeccionar\n│  ├─ read.csv() y read.delim()\n│  ├─ head(datos)\n│  └─ tail(datos)\n├─ Simular y combinar\n│  ├─ set.seed(1010)\n│  ├─ runif(n, min, max)\n│  └─ rbind(datos1, datos2)\n├─ Transformar y visualizar\n│  ├─ mutate() y dplyr\n│  ├─ group_by() y summarise()\n│  └─ ggplot2\n└─ Flujo del análisis\n   ├─ Pregunta, parámetro y diseño\n   ├─ H₀, Hₐ y α\n   ├─ Supuestos y prueba\n   ├─ Estadístico, gl y valor p\n   └─ Decisión e interpretación biológica"
+            }
+        };
+
+        /* --------------------------
+  Utilidades y renderizado
+-------------------------- */
+        function ensureDbShape() {
+            DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+            DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+            DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+            DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+            DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+            DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+        }
+
+        function escapeHtml(s) {
+            if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        }
+
+        /* render glossary */
+        function renderGloss() {
+            const list = document.getElementById('glossList');
+            list.innerHTML = '';
+
+            const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+            glossary
+            .filter(item => {
+                const term = normalizeText(item.term);
+                const def = normalizeText(item.def);
+                return !query || term.includes(query) || def.includes(query);
+            })
+            .forEach((g, idx) => {
+                const itemId = g.id || `gloss-${idx}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative p-2 border-b';
+
+                div.innerHTML = `
+                <strong>${escapeHtml(g.term)}</strong>
+                <p class="text-xs text-gray-700 pr-14">${escapeHtml(g.def)}</p>
+
+                <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                Editar
+                </button>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                list.appendChild(div);
+            });
+
+            list.querySelectorAll('.edit-gloss').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const i = parseInt(btn.dataset.i);
+                    document.getElementById('termInput').value = DB.glossary[i].term || '';
+                    document.getElementById('defInput').value = DB.glossary[i].def || '';
+                    DB.glossary.splice(i, 1);
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                });
+            });
+
+            list.querySelectorAll('.score-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                    );
+                });
+            });
+
+            document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+        }
+        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+        /* render flashcards */
+        function renderFlashcards() {
+            const cont = document.getElementById('flashContainer');
+            cont.innerHTML = '';
+
+            const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+            flashcards.forEach((f, i) => {
+                const itemId = f.id || `flash-${i}`;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.width = '240px';
+
+                card.innerHTML = `
+                <div class="card-inner" data-index="${i}">
+                <div class="card-front">
+                ${escapeHtml(f.front)}
+                </div>
+
+                <div class="card-back relative">
+                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                </div>
+                </div>
+                `;
+
+                card.querySelector('.card-inner').addEventListener('click', e => {
+                    const inner = e.currentTarget;
+                    inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                });
+
+                card.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                cont.appendChild(card);
+            });
+
+            document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+        }
+
+        /* render structures */
+        function renderStructures() {
+            const area = document.getElementById('structuresArea'); area.innerHTML = '';
+            const structures = Array.isArray(DB.structures) ? DB.structures: [];
+            structures.forEach((s, idx)=> {
+                const options = Array.isArray(s.options) ? s.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                wrap.innerHTML = `<div><h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a></div><div class="mt-2" id="opts-${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                options.forEach((o, i)=> {
+                    const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                btn.addEventListener('click', () => {
+                    const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                    if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                    }
+
+                    const itemId = s.id || `structure-${idx}`;
+
+                    if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                    } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                    }
+                });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+        }
+
+        /* render cases */
+        function renderCases() {
+            const area = document.getElementById('casesArea'); area.innerHTML = '';
+            const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+            casesList.forEach((c,
+                idx)=> {
+                const options = Array.isArray(c.options) ? c.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                wrap.innerHTML = `<div><h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">${escapeHtml(c.text)}</p><div class="mt-2" id="caseOpts${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                options.forEach((o, i)=> {
+                    const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                btn.addEventListener('click',
+                    () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                            alert('Selecciona opción');
+                            return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                            alert('✅ Correcto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, false);
+                        }
+                    });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+        }
+
+        /* render interactives with correct drag/drop handling */
+        function renderInteratives() {
+            const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+            (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                idx)=> {
+                const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                if (it.type === 'dragdrop') {
+                    const terms = Array.isArray(it.terms) ? it.terms: [];
+                    const targets = Array.isArray(it.targets) ? it.targets: [];
+                    const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                    terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                            e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                    });
+                    const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                    targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                            e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                            dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                            e.preventDefault();
+                            dz.style.backgroundColor = '';
+                            const id = e.dataTransfer.getData('text/plain');
+                            const el = document.getElementById(id);
+                            if (!el) return;
+                            // append (this move automatically removes from previous parent)
+                            dz.appendChild(el);
+                            // compute trimmed texts
+                            const childText = el.textContent.trim();
+                            const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                            const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                            if (expected && expected === zoneText) {
+                                dz.style.borderColor = '#16a34a';
+                                dz.style.backgroundColor = '#ecfdf5';
+                                dz.dataset.correct = 'true';
+                            } else {
+                                dz.style.borderColor = '#dc2626';
+                                dz.style.backgroundColor = '#fff1f2';
+                                dz.dataset.correct = 'false';
+                            }
+                            // For other zones: if empty reset; if they have children, re-evaluate them
+                            targets.forEach((ot, j)=> {
+                                const otherDz = document.getElementById(`target-${idx}-${j}`);
+                                if (!otherDz) return;
+                                if (otherDz === dz) return;
+                                // remove any duplicate of the moved element (safety)
+                                Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                                    if (ch.id === el.id) otherDz.removeChild(ch);
+                                });
+                                if (otherDz.querySelectorAll('.draggable').length === 0) {
+                                    otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                                } else {
+                                    const rem = otherDz.querySelector('.draggable');
+                                    if (rem) {
+                                        const remText = rem.textContent.trim();
+                                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                                        if (remExp && remExp === otherZoneText) {
+                                            otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                                        } else {
+                                            otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                        targetsDiv.appendChild(dz);
+                    });
+                    block.appendChild(termsDiv);
+                    block.appendChild(targetsDiv);
+
+                    const checkBtn = document.createElement('button');
+                    checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                    checkBtn.textContent = 'Verificar actividad';
+
+                    checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                            alert('✅ Actividad correcta');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Revisa la actividad.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+
+                    block.appendChild(checkBtn);
+                } else if (it.type === 'complete') {
+                    const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">${escapeHtml(it.prompt || '')}</div><input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                    const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                    btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                            alert('✅ Correcto');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+                    block.appendChild(q); block.appendChild(btn);
+                }
+                area.appendChild(block);
+            });
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        }
+
+        /* render maps */
+        function renderMaps() {
+            const disp = document.getElementById('mapsDisplay');
+            disp.innerHTML = '';
+
+            Object.entries(DB.maps || {}).forEach(([k,
+                v]) => {
+                const itemId = `map-${k}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative bg-gray-50 p-3 rounded';
+
+                div.innerHTML = `
+                <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                div.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                disp.appendChild(div);
+            });
+
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        }
+
+        /* Save/load DB to localStorage */
+        function saveToLocal() {
+            localStorage.setItem('DB_biocel', JSON.stringify(DB));
+        }
+        function loadFromLocal() {
+            const raw = localStorage.getItem('DB_biocel');
+            if (raw) {
+                try {
+                    DB = JSON.parse(raw);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            ensureDbShape();
+            renderAll();
+        }
+        function renderAll() {
+            ensureDbShape();
+            renderQuizTopics();
+            renderGloss();
+            renderFlashcards();
+            renderStructures();
+            renderCases();
+            renderInteratives();
+            renderMaps();
+
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+            updateDashboard();
+        }
+        /* Score and dashboard */
+        const POINTS_PER_ITEM = 10;
+
+        function getProgress() {
+            return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+        }
+
+        function saveProgress(progress) {
+            localStorage.setItem('progressBySection', JSON.stringify(progress));
+        }
+
+        function markItem(section, id, isCorrect) {
+            const progress = getProgress();
+
+            if (!progress[section]) {
+                progress[section] = {};
+            }
+
+            progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+            saveProgress(progress);
+            updateDashboard();
+        }
+
+        function countCorrect(progress, section) {
+            if (!progress[section]) return 0;
+
+            return Object.values(progress[section]).filter(value => value === 'correct').length;
+        }
+
+        function getSectionTotals() {
+            return {
+                quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+            };
+        }
+
+        function formatProgress(correct, total) {
+            const obtained = correct * POINTS_PER_ITEM;
+            const max = total * POINTS_PER_ITEM;
+            const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+            return {
+                obtained,
+                max,
+                percent,
+                text: `${obtained} / ${max} - ${percent}%`
+            };
+        }
+
+        function updateDashboard() {
+            const progress = getProgress();
+            const totals = getSectionTotals();
+
+            const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+            const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+            const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+            const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+            const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+            const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+            const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+            const obtainedTotal =
+            quiz.obtained +
+            gloss.obtained +
+            flash.obtained +
+            structures.obtained +
+            cases.obtained +
+            interactive.obtained +
+            maps.obtained;
+
+            const maxTotal =
+            quiz.max +
+            gloss.max +
+            flash.max +
+            structures.max +
+            cases.max +
+            interactive.max +
+            maps.max;
+
+            const totalPercent = maxTotal > 0
+            ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+            document.getElementById('score').textContent = obtainedTotal;
+            document.getElementById('maxScore').textContent = maxTotal;
+            document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+            document.getElementById('progressQuiz').textContent = quiz.text;
+            document.getElementById('progressGloss').textContent = gloss.text;
+            document.getElementById('progressFlash').textContent = flash.text;
+            document.getElementById('progressStructures').textContent = structures.text;
+            document.getElementById('progressCases').textContent = cases.text;
+            document.getElementById('progressInteractive').textContent = interactive.text;
+            document.getElementById('progressMaps').textContent = maps.text;
+        }
+
+        loadFromLocal();
+
+        /* Navigation wiring */
+        const sections = document.querySelectorAll("section");
+        document.querySelectorAll(".btn").forEach(btn=> {
+            btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                    top: 0, behavior: 'smooth'
+                });
+            });
+        });
+
+        /* File import/export */
+        const fileInput = document.getElementById('fileInput');
+        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+        fileInput.addEventListener('change', handleFile, false);
+        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+        function handleFile(evt) {
+            const f = evt.target.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e=> {
+                try {
+                    const obj = JSON.parse(e.target.result);
+                    // basic merge/replace: if keys present replace DB keys
+                    DB = Object.assign({}, DB, obj);
+                    ensureDbShape();
+                    renderAll();
+                    saveToLocal();
+                    alert('Contenido importado correctamente.');
+                } catch(err) {
+                    alert('Error leyendo JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(f);
+        }
+        function exportAll() {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const blob = new Blob([dataStr], {
+                type: "application/json"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        /* CRUD simple for glosario, flashcards, etc. */
+        document.getElementById('addTerm').addEventListener('click', ()=> {
+            const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+            if (!t || !d) {
+                alert('Rellena término y definición'); return;
+            }
+            DB.glossary.unshift({
+                term: t, def: d
+            }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+        });
+        document.getElementById('clearGloss').addEventListener('click', ()=> {
+            if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+        });
+        document.getElementById('importGloss').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                    DB.glossary = arr;
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Glosario importado');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportGloss').addEventListener('click', ()=> {
+            document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+        });
+
+        document.getElementById('loadFlash').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                    DB.flashcards = arr;
+                    renderFlashcards();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Flashcards cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportFlash').addEventListener('click', ()=> {
+            document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+        });
+
+        document.getElementById('loadStructures').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                    DB.structures = arr;
+                    renderStructures();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Estructuras cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportStructures').addEventListener('click', ()=> {
+            document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+        });
+
+        document.getElementById('loadCases').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                    DB.cases = arr;
+                    renderCases();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Casos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportCases').addEventListener('click', ()=> {
+            document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+        });
+
+        document.getElementById('loadInter').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                    DB.interactives = arr;
+                    renderInteratives();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Interactivos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportInter').addEventListener('click', ()=> {
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        });
+
+        document.getElementById('loadMaps').addEventListener('click', ()=> {
+            try {
+                const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                    DB.maps = obj;
+                    renderMaps();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Mapas cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportMaps').addEventListener('click', ()=> {
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        });
+
+        /* Quiz: sequential behavior */
+        let filteredQuestions = DB.questions.slice();
+        let qIndex = 0;
+        let currentQuestion = null;
+        function renderQuizTopics() {
+            const select = document.getElementById('quizTopic');
+            if (!select) return;
+            select.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Todos los bloques';
+            select.appendChild(allOption);
+            const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            topics.forEach(topic => {
+                if (!topic || !topic.value) return;
+                const option = document.createElement('option');
+                option.value = topic.value;
+                option.textContent = topic.label || topic.value;
+                select.appendChild(option);
+            });
+        }
+        function refreshFiltered(topic) {
+            filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+            qIndex = 0;
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            renderCurrentQuestion();
+        }
+        function renderCurrentQuestion() {
+            if (filteredQuestions.length === 0) {
+                document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+            }
+            if (qIndex < 0) qIndex = 0;
+            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+            const q = filteredQuestions[qIndex];
+            document.getElementById('qText').textContent = q.text;
+            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+            const questionOptions = Array.isArray(q.options) ? q.options: [];
+            questionOptions.forEach((o, i)=> {
+                const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+            });
+            document.getElementById('qNumber').textContent = (qIndex+1);
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            currentQuestion = q;
+        }
+        document.getElementById('quizTopic').addEventListener('change', ()=> {
+            refreshFiltered(document.getElementById('quizTopic').value);
+        });
+        document.getElementById('nextQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+        });
+        document.getElementById('prevQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+        });
+        document.getElementById('checkA').addEventListener('click', () => {
+            const sel = document.querySelector('input[name="qopt"]:checked');
+            const res = document.getElementById('qResult');
+
+            if (!currentQuestion) {
+                res.textContent = 'No hay pregunta seleccionada.';
+                return;
+            }
+
+            if (!sel) {
+                res.textContent = 'Selecciona una opción.';
+                return;
+            }
+
+            const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+            if (parseInt(sel.value) === currentQuestion.answer) {
+                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, true);
+            } else {
+                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, false);
+            }
+        });
+
+        document.getElementById('showAll').addEventListener('click', ()=> {
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+        });
+
+        /* Load questions JSON editor */
+        document.getElementById('loadQuestions').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                    DB.questions = arr;
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    renderAll();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Preguntas cargadas');
+                } else alert('Formato inválido (se espera array).');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                if (Array.isArray(arr)) {
+                    DB.quizTopics = arr;
+                    renderQuizTopics();
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    saveToLocal();
+                    alert('Bloques del quiz cargados');
+                } else {
+                    alert('Formato inválido (se espera array).');
+                }
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+        });
+
+        /* Reset progress */
+        document.getElementById('reset').addEventListener('click', () => {
+            if (!confirm('Reiniciar todo el progreso?')) return;
+
+            localStorage.removeItem('progressBySection');
+            localStorage.removeItem('score');
+            localStorage.removeItem('block1');
+            localStorage.removeItem('block2');
+            localStorage.removeItem('block3');
+
+            updateDashboard();
+        });
+
+        /* initial render and quiz setup */
+        renderAll();
+        refreshFiltered('all');
+
+        /* =====================
+   HOME JSON (SOLO INICIO)
+   ===================== */
+
+        document.getElementById("loadHomeJSON").addEventListener("click", () => {
+            try {
+                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                if (data.title) {
+                    document.getElementById("homeTitle").textContent = data.title;
+                }
+                if (data.description) {
+                    document.getElementById("homeDescription").innerHTML = data.description;
+                }
+            } catch (e) {
+                alert("JSON inválido en Inicio");
+            }
+        });
+
+        document.getElementById("exportHomeJSON").addEventListener("click", () => {
+            const data = {
+                title: document.getElementById("homeTitle").textContent,
+                description: document.getElementById("homeDescription").innerHTML
+            };
+            document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>
